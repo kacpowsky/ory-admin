@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { type AuthUser, UserRole } from "../types";
-import { findUserByCredentials, toAuthUser } from "../utils";
 
 // Define auth store interface
 interface AuthStoreState {
@@ -25,15 +24,19 @@ export const useAuthStore = create<AuthStoreState>()(
 			setLoading: (isLoading: boolean) => set({ isLoading }),
 
 			login: async (username: string, password: string) => {
-				// Find user from our config
-				const userRecord = findUserByCredentials(username, password);
+				const res = await fetch("/api/auth/login", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ username, password }),
+				});
 
-				if (userRecord) {
-					const user = toAuthUser(userRecord);
-					set({ user, isAuthenticated: true });
+				if (!res.ok) return false;
+
+				const data = (await res.json()) as { user: AuthUser };
+				if (data.user) {
+					set({ user: data.user, isAuthenticated: true });
 					return true;
 				}
-
 				return false;
 			},
 
@@ -60,23 +63,7 @@ export const useAuthStore = create<AuthStoreState>()(
 				isAuthenticated: state.isAuthenticated,
 			}),
 			onRehydrateStorage: () => (state) => {
-				// When storage is rehydrated, set loading to false
-				if (state) {
-					// Check if login should be disabled (for testing/screenshots)
-					const disableLogin = process.env.NEXT_PUBLIC_DISABLE_LOGIN === "true";
-
-					if (disableLogin && !state.isAuthenticated) {
-						// Auto-login as admin user
-						const adminUser = findUserByCredentials("admin", "admin123");
-						if (adminUser) {
-							const user = toAuthUser(adminUser);
-							state.user = user;
-							state.isAuthenticated = true;
-						}
-					}
-
-					state.setLoading(false);
-				}
+				if (state) state.setLoading(false);
 			},
 		},
 	),
