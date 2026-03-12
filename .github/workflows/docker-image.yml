@@ -1,17 +1,9 @@
 name: Build and Push Image
 
+# Every push to main builds and pushes the image
 on:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package*.json'
-      - 'next.config.js'
-      - 'tailwind.config.js'
-      - 'tsconfig.json'
-      - 'Dockerfile'
-      - '.dockerignore'
 
 jobs:
   build-and-push:
