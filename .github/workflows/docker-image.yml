@@ -18,13 +18,12 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      # In repo: Settings → Secrets and variables → Actions → add GHCR_TOKEN (PAT with write:packages)
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
