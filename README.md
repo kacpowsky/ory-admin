@@ -128,6 +128,11 @@ API Keys are typically mandatory when accessing an Ory Network project.
 
 Endpoints and API Keys can also be configured via the settings dialog in the application.
 
+> **Precedence:** Environment variables always take priority. Any value passed to the
+> container (e.g. `KRATOS_PUBLIC_URL`, `HYDRA_ADMIN_URL`) takes effect immediately and
+> overrides values previously stored in browser cookies via the settings dialog. The
+> settings dialog is only used when the corresponding environment variable is not set.
+
 ## Development
 
 ```bash

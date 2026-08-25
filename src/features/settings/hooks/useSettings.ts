@@ -104,41 +104,6 @@ async function fetchServerDefaults(): Promise<{
 	};
 }
 
-// Read all settings from cookies
-function readSettingsFromCookies(): {
-	kratos: KratosEndpoints;
-	hydra: HydraEndpoints;
-	isOryNetwork: boolean;
-	hydraEnabled: boolean;
-} | null {
-	const kratosPublicUrl = getCookie("kratos-public-url");
-	const kratosAdminUrl = getCookie("kratos-admin-url");
-	const hydraPublicUrl = getCookie("hydra-public-url");
-	const hydraAdminUrl = getCookie("hydra-admin-url");
-	const hydraEnabledCookie = getCookie("hydra-enabled");
-
-	// If we don't have the essential URLs, return null
-	if (!kratosPublicUrl || !kratosAdminUrl) {
-		return null;
-	}
-
-	return {
-		kratos: {
-			publicUrl: kratosPublicUrl,
-			adminUrl: kratosAdminUrl,
-			apiKey: getCookie("kratos-api-key") || undefined,
-		},
-		hydra: {
-			publicUrl: hydraPublicUrl || "http://localhost:4444",
-			adminUrl: hydraAdminUrl || "http://localhost:4445",
-			apiKey: getCookie("hydra-api-key") || undefined,
-		},
-		isOryNetwork: getCookie("is-ory-network") === "true",
-		// Default to true if cookie doesn't exist (for backwards compatibility)
-		hydraEnabled: hydraEnabledCookie !== "false",
-	};
-}
-
 // Write all settings to cookies
 function writeSettingsToCookies(settings: { kratos: KratosEndpoints; hydra: HydraEndpoints; isOryNetwork: boolean; hydraEnabled: boolean }) {
 	setCookie("kratos-public-url", settings.kratos.publicUrl);
@@ -173,33 +138,34 @@ export const useSettingsStore = create<SettingsStoreState>()((set, get) => ({
 		// Already initialized
 		if (get().isReady) return;
 
-		// Try to read from cookies first (synchronous)
-		const cookieSettings = readSettingsFromCookies();
-
-		if (cookieSettings) {
-			// Cookies exist - use them and mark ready immediately
-			set({
-				kratosEndpoints: cookieSettings.kratos,
-				hydraEndpoints: cookieSettings.hydra,
-				isOryNetwork: cookieSettings.isOryNetwork,
-				hydraEnabled: cookieSettings.hydraEnabled,
-				isReady: true,
-			});
-			return;
-		}
-
-		// No cookies - fetch defaults from server
+		// Environment variables (exposed via /api/config) are the source of truth.
+		// We always fetch server defaults first so that values passed to the container
+		// take effect immediately instead of being shadowed by previously persisted cookies.
 		const defaults = await fetchServerDefaults();
 
-		// Write to cookies FIRST
-		writeSettingsToCookies(defaults);
-
-		// Then update state
-		set({
-			kratosEndpoints: defaults.kratos,
-			hydraEndpoints: defaults.hydra,
+		// Env values win for URLs. For API keys we fall back to a manually entered
+		// cookie value only when the server did not provide one.
+		const settings = {
+			kratos: {
+				...defaults.kratos,
+				apiKey: defaults.kratos.apiKey || getCookie("kratos-api-key") || undefined,
+			},
+			hydra: {
+				...defaults.hydra,
+				apiKey: defaults.hydra.apiKey || getCookie("hydra-api-key") || undefined,
+			},
 			isOryNetwork: defaults.isOryNetwork,
 			hydraEnabled: defaults.hydraEnabled,
+		};
+
+		// Keep cookies in sync with the effective settings so the proxy and UI agree.
+		writeSettingsToCookies(settings);
+
+		set({
+			kratosEndpoints: settings.kratos,
+			hydraEndpoints: settings.hydra,
+			isOryNetwork: settings.isOryNetwork,
+			hydraEnabled: settings.hydraEnabled,
 			isReady: true,
 		});
 	},

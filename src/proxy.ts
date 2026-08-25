@@ -21,7 +21,7 @@ async function proxyToService(request: NextRequest, baseUrl: string, pathPrefix:
 		let authorizationHeader: string | undefined;
 		if (serviceName === "Kratos") {
 			const kratosApiKeyEncrypted =
-				request.cookies.get("kratos-api-key")?.value || request.headers.get("x-kratos-api-key") || process.env.KRATOS_API_KEY || undefined;
+				process.env.KRATOS_API_KEY || request.cookies.get("kratos-api-key")?.value || request.headers.get("x-kratos-api-key") || undefined;
 			if (kratosApiKeyEncrypted) {
 				// Decrypt the API key (handles both encrypted and plain text values)
 				const kratosApiKey = await decryptApiKey(kratosApiKeyEncrypted);
@@ -31,7 +31,7 @@ async function proxyToService(request: NextRequest, baseUrl: string, pathPrefix:
 			}
 		} else if (serviceName === "Hydra") {
 			const hydraApiKeyEncrypted =
-				request.cookies.get("hydra-api-key")?.value || request.headers.get("x-hydra-api-key") || process.env.HYDRA_API_KEY || undefined;
+				process.env.HYDRA_API_KEY || request.cookies.get("hydra-api-key")?.value || request.headers.get("x-hydra-api-key") || undefined;
 			if (hydraApiKeyEncrypted) {
 				// Decrypt the API key (handles both encrypted and plain text values)
 				const hydraApiKey = await decryptApiKey(hydraApiKeyEncrypted);
@@ -123,12 +123,16 @@ async function proxyToService(request: NextRequest, baseUrl: string, pathPrefix:
 export async function proxy(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 
+	// URL resolution priority: environment variable > cookie > header > default.
+	// Environment variables always win so that values passed to the container
+	// take effect immediately, without being shadowed by previously persisted cookies.
+
 	// Handle Kratos public API proxying
 	if (pathname.startsWith("/api/kratos/")) {
 		const kratosPublicUrlRaw =
+			process.env.KRATOS_PUBLIC_URL ||
 			request.cookies.get("kratos-public-url")?.value ||
 			request.headers.get("x-kratos-public-url") ||
-			process.env.KRATOS_PUBLIC_URL ||
 			"http://localhost:4433";
 
 		const kratosPublicUrl = decodeURIComponent(kratosPublicUrlRaw);
@@ -138,9 +142,9 @@ export async function proxy(request: NextRequest) {
 	// Handle Kratos admin API proxying
 	if (pathname.startsWith("/api/kratos-admin/")) {
 		const kratosAdminUrlRaw =
+			process.env.KRATOS_ADMIN_URL ||
 			request.cookies.get("kratos-admin-url")?.value ||
 			request.headers.get("x-kratos-admin-url") ||
-			process.env.KRATOS_ADMIN_URL ||
 			"http://localhost:4434";
 
 		const kratosAdminUrl = decodeURIComponent(kratosAdminUrlRaw);
@@ -150,9 +154,9 @@ export async function proxy(request: NextRequest) {
 	// Handle Hydra public API proxying
 	if (pathname.startsWith("/api/hydra/")) {
 		const hydraPublicUrlRaw =
+			process.env.HYDRA_PUBLIC_URL ||
 			request.cookies.get("hydra-public-url")?.value ||
 			request.headers.get("x-hydra-public-url") ||
-			process.env.HYDRA_PUBLIC_URL ||
 			"http://localhost:4444";
 
 		const hydraPublicUrl = decodeURIComponent(hydraPublicUrlRaw);
@@ -162,9 +166,9 @@ export async function proxy(request: NextRequest) {
 	// Handle Hydra admin API proxying
 	if (pathname.startsWith("/api/hydra-admin/")) {
 		const hydraAdminUrlRaw =
+			process.env.HYDRA_ADMIN_URL ||
 			request.cookies.get("hydra-admin-url")?.value ||
 			request.headers.get("x-hydra-admin-url") ||
-			process.env.HYDRA_ADMIN_URL ||
 			"http://localhost:4445";
 
 		const hydraAdminUrl = decodeURIComponent(hydraAdminUrlRaw);
